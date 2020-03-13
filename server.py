@@ -8,6 +8,7 @@ import time
 
 app = Flask(__name__)
 
+# TODO fix so that deployments does not overwrite its self
 
 def randomStr(stringLength=10):
     letters = string.ascii_lowercase
@@ -24,6 +25,7 @@ def project(jsonArray):
     return '{"success", "true"}', 200
 
 
+# example command  "{\"action\": {\"deployments\": \"update\"}}"
 def action(jsonArray):
     # grabbing the key and value
     for key, value in jsonArray["action"].items():
@@ -49,8 +51,28 @@ def action(jsonArray):
                         '{"devices": [{"' + str("*" + value + "*") + '": [false, "' + randomStr(32) + '"]}]}')
                 print(str(json.loads(open("devices.json", "r").read())["devices"]))
                 return str(json.loads(open("devices.json", "r").read())["devices"]), 200
+        elif key == "addDeployment":
+            if path.exists("deployments.json") and open("deployments.json", "r").read() != "":
+                with open("deployments.json") as devicesJson:
+                    devices = json.loads(devicesJson.read())
+                    for device in devices["deployments"]:
+                        print("deployments", device)
+                        if "*" + value + "*" in device:
+                            return throwError("addDeployment")
+                    value = "*" + value + "*"
+                    devices["deployments"].append({str(value): [False, randomStr(32)]})
+                json.dump(devices, open("deployments.json", "w"))
+                print(str(json.loads(open("deployments.json", "r").read())["deployments"]))
+                return str(json.loads(open("deployments.json", "r").read())["deployments"]), 200
+            else:
+                with open("deployments.json", "w+") as devicesJson:
+                    devicesJson.write(
+                        '{"deployments": [{"' + str("*" + value + "*") + '": [false, "' + randomStr(32) + '"]}]}')
+                print(str(json.loads(open("deployments.json", "r").read())["deployments"]))
+                return str(json.loads(open("deployments.json", "r").read())["deployments"]), 200
 
 
+# example command
 def deleteItem(jsonArray):
     for key, value in jsonArray["delete"].items():
         with open(key + ".json") as jsonFile:
@@ -63,6 +85,7 @@ def deleteItem(jsonArray):
     return '{"success", "true"}', 200
 
 
+# example command
 def programCheckIn(jsonArray):
     print(jsonArray)
     programsJson = json.load(open("programs.json")) if path.exists("programs.json") else {}
@@ -72,6 +95,7 @@ def programCheckIn(jsonArray):
     return '{"success", "true"}', 200
 
 
+# example command
 def autoDeploymentEngine(jsonArray):
     if path.exists("AutoDeploymentEngine.json"):
         with open("AutoDeploymentEngine.json", "r") as jsonFile:
@@ -85,9 +109,10 @@ def autoDeploymentEngine(jsonArray):
                         with open("AutoDeploymentEngine.json", "w") as jsonFileW:
                             json.dump(jsonData, jsonFileW)
                         return json.dumps(jsonResponse), 200
-    return {"actions": "none"}
+    return '{"actions": "none"}', 200
 
 
+# example command "{\"addAutoDeploymentEngineCommand\": {\"server\": {\"serverName\": {\"start\":  \"git@github.com:Catalyze326/Microcenter-Scraper.git\"}}}}"
 def addAutoDeploymentEngineCommand(jsonArray):
     jsonArray = jsonArray["addAutoDeploymentEngineCommand"]
     if path.exists("AutoDeploymentEngine.json"):
@@ -105,11 +130,12 @@ def addAutoDeploymentEngineCommand(jsonArray):
                                     return json.dumps(jsonData["servers"][i][serverName]), 200
     jsonData = {}
     with open("AutoDeploymentEngine.json", "w") as jsonFile:
+        print(jsonArray["server"].items())
         for key, value in jsonArray["server"].items():
             jsonData["servers"] = [{key: [value]}]
             json.dump(jsonData, jsonFile)
             return jsonData, 200
-    return {"actions": "none"}
+    return {"actions": "none"}, 200
 
 
 @app.route('/', methods=['POST'])
@@ -134,4 +160,4 @@ def webhook():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=556)
